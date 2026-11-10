@@ -1,5 +1,3 @@
-### Тестування API ТехноПоміч (розширення REST Client для VS Code: натисніть "Send Request" над запитом)
-### Спершу: dotnet run -- --seed, потім dotnet run. Пароль усіх демо-користувачів: demo
 
 @host = http://localhost:5000/api
 
