@@ -1,0 +1,109 @@
+### Тестування API ТехноПоміч (розширення REST Client для VS Code: натисніть "Send Request" над запитом)
+### Спершу: dotnet run -- --seed, потім dotnet run. Пароль усіх демо-користувачів: demo
+
+@host = http://localhost:5000/api
+
+### 0. Перевірка роботи сервера
+GET {{host}}/health
+
+### 1. Публічний знімок БД (без токена: лише користувачі й контрагенти)
+GET {{host}}/db
+
+### 2. Вхід менеджера -> у відповіді userId і token
+# @name loginManager
+POST {{host}}/login
+Content-Type: application/json
+
+{ "login": "oksana", "password": "demo" }
+
+###
+@token = {{loginManager.response.body.token}}
+
+### 3. Хибний пароль -> 401
+POST {{host}}/login
+Content-Type: application/json
+
+{ "login": "oksana", "password": "wrong" }
+
+### 4. Повний знімок БД із токеном
+GET {{host}}/db
+Authorization: Bearer {{token}}
+
+### 5. Створення замовлення з новим клієнтом і пристроєм (автоматично додається етап «Діагностика»)
+POST {{host}}/orders
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "newClient": { "name": "Тест Клієнт", "phone": "+380501112233", "email": "" },
+  "newDevice": { "type": "Ноутбук", "brand": "Lenovo", "model": "X1" },
+  "desc": "Не вмикається"
+}
+
+### 6. Валідація -> 400 (немає опису несправності)
+POST {{host}}/orders
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "clientId": "p6" }
+
+### 7. Додати етап (id замовлення візьміть з відповіді п. 5, напр. o6)
+POST {{host}}/stages
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "orderId": "o6", "serviceId": "s2" }
+
+### 8. Призначити виконавця на етап (id етапу зі знімка БД)
+PATCH {{host}}/stages/assign
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "stageId": "t11", "partyId": "p1" }
+
+### 9. Вхід майстра (Тарас, «ТехноПоміч»)
+# @name loginMaster
+POST {{host}}/login
+Content-Type: application/json
+
+{ "login": "taras", "password": "demo" }
+
+###
+@masterToken = {{loginMaster.response.body.token}}
+
+### 10. Майстер приймає етап
+PATCH {{host}}/stages/accept
+Authorization: Bearer {{masterToken}}
+Content-Type: application/json
+
+{ "stageId": "t11" }
+
+### 11. Майстер завершує етап із висновком
+PATCH {{host}}/stages/finish
+Authorization: Bearer {{masterToken}}
+Content-Type: application/json
+
+{ "stageId": "t11", "text": "Несправний блок живлення" }
+
+### 12. Менеджер залишає відгук про виконавця
+POST {{host}}/reviews
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "stageId": "t11", "score": 5, "text": "Швидко й якісно" }
+
+### 13. Майстер не може створювати замовлення -> 403
+POST {{host}}/orders
+Authorization: Bearer {{masterToken}}
+Content-Type: application/json
+
+{ "clientId": "p6", "deviceId": "d1", "desc": "x" }
+
+### 14. Без токена на захищений маршрут -> 401
+POST {{host}}/orders
+Content-Type: application/json
+
+{ "clientId": "p6", "deviceId": "d1", "desc": "x" }
+
+### 15. Неіснуючий маршрут -> 404
+GET {{host}}/nope
